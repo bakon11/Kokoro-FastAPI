@@ -63,6 +63,14 @@ rocm = [
     "torch==2.8.0+rocm6.4",
     "pytorch-triton-rocm>=3.2.0",
 ]
+# ROCm 7.14 userspace matching host drivers for RDNA4 (gfx1201, e.g. R9700).
+# The rocm6.4 extra still works on RDNA4 via experimental paths, but this one
+# aligns torch/MIOpen/rocBLAS with the 7.14 kernel driver stack.
+rocm7 = [
+    "torch==2.14.1+rocm7.14",
+    "pytorch-triton-rocm>=3.5.1",
+    "rocm>=7.14.0,<=7.14.99",
+]
 test = [
     "pytest==8.3.5",
     "pytest-cov==6.0.0",
@@ -78,12 +86,17 @@ test = [
 #       --abort-on-container-exit --exit-code-from test-client
 
 [tool.uv]
+# pytorch-rocm7 (non-explicit) carries only the rocm-sdk-* family + torch;
+# everything else must still resolve from PyPI, so cross-index best-match is
+# required (both indexes are official: pypi.org and download.pytorch.org).
+index-strategy = "unsafe-best-match"
 conflicts = [
     [
         { extra = "cpu" },
         { extra = "gpu" },
         { extra = "gpu-cu128" },
         { extra = "rocm" },
+        { extra = "rocm7" },
     ],
 ]
 override-dependencies = [
@@ -99,9 +112,16 @@ torch = [
     { index = "pytorch-cu128", extra = "gpu-cu128", marker = "platform_machine == 'x86_64'" },
     { index = "pytorch-cu129", extra = "gpu-cu128", marker = "platform_machine == 'aarch64'" },
     { index = "pytorch-rocm", extra = "rocm" },
+    { index = "pytorch-rocm7", extra = "rocm7" },
 ]
 pytorch-triton-rocm = [
     { index = "pytorch-rocm", extra = "rocm" },
+    { index = "pytorch-rocm7", extra = "rocm7" },
+]
+# torch 2.14+rocm7.14 depends on the 'rocm' meta-package (7.14.*), which lives
+# on the pytorch rocm7.14 index (hosted at repo.amd.com), NOT on PyPI (0.1.0).
+rocm = [
+    { index = "pytorch-rocm7", extra = "rocm7" },
 ]
 
 [[tool.uv.index]]
@@ -128,6 +148,14 @@ explicit = true
 name = "pytorch-rocm"
 url = "https://download.pytorch.org/whl/rocm6.4"
 explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-rocm7"
+url = "https://download.pytorch.org/whl/rocm7.14"
+# NOT explicit: torch 2.14+rocm7.14 pulls the whole rocm-sdk-* family
+# (core, libraries, device-gfx1201, ...) transitively via rocm[device-all];
+# these exist only on this AMD index, so it must participate in transitive resolution.
+explicit = false
 
 [build-system]
 requires = ["setuptools>=61.0"]

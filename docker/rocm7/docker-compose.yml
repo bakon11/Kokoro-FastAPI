@@ -1,0 +1,31 @@
+# RDNA4 (gfx1201) deployment — validated on R9700 / host ROCm 7.14 userspace
+name: kokoro-fastapi-rocm7
+services:
+  kokoro-tts:
+      image: ${KOKORO_IMAGE:-bakon11/kokoro-fastapi-rocm7:latest}
+      container_name: kokoro-tts
+      build:
+        context: ../..
+        dockerfile: docker/rocm7/Dockerfile
+      devices:
+        - /dev/dri
+        - /dev/kfd
+      group_add:
+        # video, render, input — resolve on the target host: getent group video render input
+        - "44"
+        - "991"
+        - "995"
+      restart: 'unless-stopped'
+      volumes:
+        - miopen_config:/home/appuser/.config/miopen
+        - miopen_cache:/home/appuser/.cache/miopen
+      ports:
+        - 8880:8880
+      environment:
+        - USE_GPU=true
+        - HIP_VISIBLE_DEVICES=1
+        - MIOPEN_FIND_MODE=2
+
+volumes:
+  miopen_config:
+  miopen_cache:
